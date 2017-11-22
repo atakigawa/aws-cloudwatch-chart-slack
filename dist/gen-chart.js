@@ -53,6 +53,9 @@ try {
   });
   var textLabelX = (0, _metrics.to_axis_x_label_text)(repre, argv.utc);
 
+  var dayDiff = (0, _moment2.default)(repre.EndTime).diff((0, _moment2.default)(repre.StartTime), 'days');
+  var xFormat = dayDiff > 3 ? '%m/%d' : '%H:%M';
+
   var data = {
     _meta: { StartTime: repre.StartTime, EndTime: repre.EndTime, UTC: argv.utc },
     bindto: "#" + argv.bindto,
@@ -93,7 +96,7 @@ try {
             max: argv["x-tick-culling-max"]
           },
           _format: "%Y-%m-%dT%H:%M:%S",
-          format: "%H:%M"
+          format: xFormat
         },
         //padding: {left: 0, right: 0},
         label: {

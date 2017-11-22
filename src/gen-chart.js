@@ -39,6 +39,9 @@ try {
   })
   const textLabelX = to_axis_x_label_text(repre, argv.utc)
 
+  const dayDiff = moment(repre.EndTime).diff(moment(repre.StartTime), 'days')
+  const xFormat = dayDiff > 3 ? '%m/%d' : '%H:%M'
+
   const data = {
     _meta: {StartTime: repre.StartTime, EndTime: repre.EndTime, UTC: argv.utc},
     bindto: `#${argv.bindto}`,
@@ -79,7 +82,7 @@ try {
             max: argv["x-tick-culling-max"],
           },
           _format: "%Y-%m-%dT%H:%M:%S",
-          format: "%H:%M",
+          format: xFormat,
         },
         //padding: {left: 0, right: 0},
         label: {
