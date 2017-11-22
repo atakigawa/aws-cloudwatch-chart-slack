@@ -6,7 +6,7 @@ import dynamodb from "./dynamodb.js"
 
 const argv = require("minimist")(system.args.slice(1), {
   string: ["filename", "width", "height", "max", "min", "node_modules_path",
-           "x-label", "format", "bindto", "point-r"],
+           "x-label", "format", "bindto", "point-r", "datanames"],
   boolean: ["base64", "keep-html", "keep-js", "grid-x", "grid-y", "utc", "bytes", "without-image"],
   alias: {
     f: "filename",
@@ -29,12 +29,16 @@ try {
   const MetricName = repre.Label     || ""
   const Namespace  = repre.Namespace || ""
   const sort = (datapoints) => datapoints.sort((a, b) => a.Timestamp.localeCompare(b.Timestamp))
-  const yData = stats_data.map(stats => {
+  const yData = stats_data.map((stats, i) => {
     if (stats.Datapoints.length < 2) {
       throw new Error(`Number of datapoints is less than 2 for ${MetricName} of ${stats.InstanceId}. There is a possibility InstanceId was wrong. ${JSON.stringify(stats)}`)
     }
     let b = dynamodb.mimic(stats)
-    return [stats[nsToDimName(Namespace)]].concat(sort(stats.Datapoints)
+    let dataname = stats[nsToDimName(Namespace)]
+    if (argv.datanames) {
+      dataname = argv.datanames.split(',')[i]
+    }
+    return [dataname].concat(sort(stats.Datapoints)
              .map(e => b ? dynamodb.toY(e) : toY(e, stats, argv.bytes)))
   })
   const textLabelX = to_axis_x_label_text(repre, argv.utc)

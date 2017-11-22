@@ -15,7 +15,7 @@ var _dynamodb2 = _interopRequireDefault(_dynamodb);
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
 var argv = require("minimist")(_phantomApi.system.args.slice(1), {
-  string: ["filename", "width", "height", "max", "min", "node_modules_path", "x-label", "format", "bindto", "point-r"],
+  string: ["filename", "width", "height", "max", "min", "node_modules_path", "x-label", "format", "bindto", "point-r", "datanames"],
   boolean: ["base64", "keep-html", "keep-js", "grid-x", "grid-y", "utc", "bytes", "without-image"],
   alias: {
     f: "filename"
@@ -42,12 +42,16 @@ try {
       return a.Timestamp.localeCompare(b.Timestamp);
     });
   };
-  var yData = stats_data.map(function (stats) {
+  var yData = stats_data.map(function (stats, i) {
     if (stats.Datapoints.length < 2) {
       throw new Error("Number of datapoints is less than 2 for " + MetricName + " of " + stats.InstanceId + ". There is a possibility InstanceId was wrong. " + JSON.stringify(stats));
     }
     var b = _dynamodb2.default.mimic(stats);
-    return [stats[(0, _metrics.nsToDimName)(Namespace)]].concat(sort(stats.Datapoints).map(function (e) {
+    var dataname = stats[(0, _metrics.nsToDimName)(Namespace)];
+    if (argv.datanames) {
+      dataname = argv.datanames.split(',')[i];
+    }
+    return [dataname].concat(sort(stats.Datapoints).map(function (e) {
       return b ? _dynamodb2.default.toY(e) : (0, _metrics.toY)(e, stats, argv.bytes);
     }));
   });
