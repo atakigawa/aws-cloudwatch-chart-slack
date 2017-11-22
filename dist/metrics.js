@@ -33,13 +33,16 @@ var metricsEC2 = [{ MetricName: "CPUCreditUsage", Statistics: ["Maximum"] }, { M
 
 var metricsDynamoDB = [{ MetricName: "ConsumedReadCapacityUnits", Statistics: ["Sum"] }, { MetricName: "ConsumedWriteCapacityUnits", Statistics: ["Sum"] }, { MetricName: "ProvisionedReadCapacityUnits", Statistics: ["Maximum"] }, { MetricName: "ProvisionedWriteCapacityUnits", Statistics: ["Maximum"] }, { MetricName: "ConditionalCheckFailedRequests", Statistics: ["Maximum"] }, { MetricName: "OnlineIndexConsumedWriteCapacity", Statistics: ["Maximum"] }, { MetricName: "OnlineIndexPercentageProgress", Statistics: ["Maximum"] }, { MetricName: "OnlineIndexThrottleEvents", Statistics: ["Maximum"] }, { MetricName: "ReturnedItemCount", Statistics: ["Maximum"] }, { MetricName: "SuccessfulRequestLatency", Statistics: ["Maximum"] }, { MetricName: "SystemErrors", Statistics: ["Maximum"] }, { MetricName: "ThrottledRequests", Statistics: ["Maximum"] }, { MetricName: "UserErrors", Statistics: ["Maximum"] }, { MetricName: "WriteThrottleEvents", Statistics: ["Maximum"] }, { MetricName: "ReadThrottleEvents", Statistics: ["Sum"] }];
 
+var metricsSystemLinux = [{ MetricName: "MemoryUtilization", Statistics: ["Average"] }, { MetricName: "DiskSpaceUtilization", Statistics: ["Average"] }];
+
 "Seconds | Microseconds | Milliseconds | Bytes | Kilobytes | Megabytes | Gigabytes | Terabytes | Bits | Kilobits | Megabits | Gigabits | Terabits | Percent | Count | Bytes/Second | Kilobytes/Second | Megabytes/Second | Gigabytes/Second | Terabytes/Second | Bits/Second | Kilobits/Second | Megabits/Second | Gigabits/Second | Terabits/Second | Count/Second | None";
 "Minimum | Maximum | Sum | Average | SampleCount";
 
 var METRICS = exports.METRICS = {
   "AWS/EC2": metricsEC2,
   "AWS/RDS": metricsRDS,
-  "AWS/DynamoDB": metricsDynamoDB
+  "AWS/DynamoDB": metricsDynamoDB,
+  "System/Linux": metricsSystemLinux
 };
 
 function searchMetric(ns, metricName) {
@@ -54,7 +57,8 @@ function nsToDimName(ns) {
   return {
     "AWS/RDS": "DBInstanceIdentifier",
     "AWS/EC2": "InstanceId",
-    "AWS/DynamoDB": "TableName"
+    "AWS/DynamoDB": "TableName",
+    "System/Linux": "InstanceId"
   }[ns];
 }
 
@@ -79,14 +83,20 @@ function toMin(metrics) {
 }
 
 function toAxisYLabel(metrics, bytes) {
+  if (metrics.Namespace === 'AWS/RDS' && metrics.Label === 'FreeStorageSpace') {
+    return "Gigabytes";
+  }
   if (metrics.Datapoints[0].Unit === "Bytes" && !bytes) {
     return "Megabytes";
   }
   return metrics.Datapoints[0].Unit;
 }
 
-function toY(metric, bytes) {
+function toY(metric, stat, bytes) {
   var e = metric["Maximum"] || metric["Average"] || metric["Minimum"] || metric["Sum"] || metric["SampleCount"];
+  if (stat.Namespace === 'AWS/RDS' && stat.Label === 'FreeStorageSpace') {
+    return e / (1024 * 1024 * 1024); // Gigabytes
+  }
   if (metric.Unit === "Bytes" && !bytes) {
     return e / (1024 * 1024); // Megabytes
   }

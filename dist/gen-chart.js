@@ -33,85 +33,90 @@ var argv = require("minimist")(_phantomApi.system.args.slice(1), {
 });
 
 try {
-  (function () {
-    var stats_data = JSON.parse(_phantomApi.system.stdin.read());
-    var repre = stats_data[0];
-    var MetricName = repre.Label || "";
-    var Namespace = repre.Namespace || "";
-    var sort = function sort(datapoints) {
-      return datapoints.sort(function (a, b) {
-        return a.Timestamp.localeCompare(b.Timestamp);
-      });
-    };
-    var yData = stats_data.map(function (stats) {
-      if (stats.Datapoints.length < 2) {
-        throw new Error("Number of datapoints is less than 2 for " + MetricName + " of " + stats.InstanceId + ". There is a possibility InstanceId was wrong. " + JSON.stringify(stats));
-      }
-      var b = _dynamodb2.default.mimic(stats);
-      return [stats[(0, _metrics.nsToDimName)(Namespace)]].concat(sort(stats.Datapoints).map(function (e) {
-        return b ? _dynamodb2.default.toY(e) : (0, _metrics.toY)(e, argv.bytes);
-      }));
+  var stats_data = JSON.parse(_phantomApi.system.stdin.read());
+  var repre = stats_data[0];
+  var MetricName = repre.Label || "";
+  var Namespace = repre.Namespace || "";
+  var sort = function sort(datapoints) {
+    return datapoints.sort(function (a, b) {
+      return a.Timestamp.localeCompare(b.Timestamp);
     });
-    var textLabelX = (0, _metrics.to_axis_x_label_text)(repre, argv.utc);
+  };
+  var yData = stats_data.map(function (stats) {
+    if (stats.Datapoints.length < 2) {
+      throw new Error("Number of datapoints is less than 2 for " + MetricName + " of " + stats.InstanceId + ". There is a possibility InstanceId was wrong. " + JSON.stringify(stats));
+    }
+    var b = _dynamodb2.default.mimic(stats);
+    return [stats[(0, _metrics.nsToDimName)(Namespace)]].concat(sort(stats.Datapoints).map(function (e) {
+      return b ? _dynamodb2.default.toY(e) : (0, _metrics.toY)(e, stats, argv.bytes);
+    }));
+  });
+  var textLabelX = (0, _metrics.to_axis_x_label_text)(repre, argv.utc);
 
-    var data = {
-      _meta: { StartTime: repre.StartTime, EndTime: repre.EndTime, UTC: argv.utc },
-      bindto: "#" + argv.bindto,
-      data: {
-        x: "x",
-        columns: [["x"].concat(sort(repre.Datapoints).map(function (e) {
-          return _moment2.default.utc(e["Timestamp"]).valueOf();
-        }))].concat(yData)
-      },
-      transition: {
-        duration: null },
-      size: {
-        width: argv.width - 16, // heuristic adjustments
-        height: argv.height - 16
-      },
-      axis: {
-        y: {
-          max: argv.max ? parseInt(argv.max) : (0, _metrics.toMax)(repre),
-          min: argv.min ? parseInt(argv.min) : (0, _metrics.toMin)(repre),
-          padding: { top: 0, bottom: 0 },
-          label: {
-            text: Namespace + " " + MetricName + " " + (0, _metrics.toAxisYLabel)(repre, argv.bytes),
-            position: "outer-middle"
-          }
-        },
-        x: {
-          type: "timeseries",
-          tick: {
-            count: argv["x-tick-count"],
-            culling: {
-              max: argv["x-tick-culling-max"]
-            },
-            _format: "%Y-%m-%dT%H:%M:%S",
-            format: "%H:%M"
-          },
-          //padding: {left: 0, right: 0},
-          label: {
-            text: argv["x-label"] || textLabelX,
-            position: "outer-center"
-          },
-          localtime: !argv.utc
+  var data = {
+    _meta: { StartTime: repre.StartTime, EndTime: repre.EndTime, UTC: argv.utc },
+    bindto: "#" + argv.bindto,
+    data: {
+      x: "x",
+      columns: [["x"].concat(sort(repre.Datapoints).map(function (e) {
+        return _moment2.default.utc(e["Timestamp"]).valueOf();
+      }))].concat(yData)
+      //colors: {
+      //  [axisXLabel]: (Namespace === "AWS/EC2" ? "#f58536" : null),
+      //},
+    },
+    transition: {
+      duration: null //
+    },
+    size: {
+      width: argv.width - 16, // heuristic adjustments
+      height: argv.height - 16
+    },
+    axis: {
+      y: {
+        max: argv.max ? parseInt(argv.max) : (0, _metrics.toMax)(repre),
+        min: argv.min ? parseInt(argv.min) : (0, _metrics.toMin)(repre),
+        padding: { top: 0, bottom: 0 },
+        label: {
+          text: Namespace + " " + MetricName + " " + (0, _metrics.toAxisYLabel)(repre, argv.bytes),
+          position: "outer-middle"
         }
+        //tick: {
+        //   format: d3.format('$,'),
+        //}
       },
-      grid: {
-        x: {
-          show: argv["grid-x"]
+      x: {
+        type: "timeseries",
+        tick: {
+          count: argv["x-tick-count"],
+          culling: {
+            max: argv["x-tick-culling-max"]
+          },
+          _format: "%Y-%m-%dT%H:%M:%S",
+          format: "%H:%M"
         },
-        y: {
-          show: argv["grid-y"]
-        }
-      },
-      point: {
-        r: argv["point-r"]
+        //padding: {left: 0, right: 0},
+        label: {
+          text: argv["x-label"] || textLabelX,
+          position: "outer-center"
+        },
+        localtime: !argv.utc
       }
-    };
+    },
+    grid: {
+      x: {
+        show: argv["grid-x"]
+      },
+      y: {
+        show: argv["grid-y"]
+      }
+    },
+    point: {
+      r: argv["point-r"]
+    }
+  };
 
-    render(argv, data);
-  })();
+  render(argv, data);
 } catch (ex) {
   _phantomApi.system.stderr.write(ex.stack);
   _phantomApi.system.stderr.write("\n");
@@ -129,10 +134,9 @@ function render(argv, data) {
   page.viewportSize = {
     width: argv.width ? parseInt(argv.width) : page.viewportSize.width,
     height: argv.height ? parseInt(argv.height) : page.viewportSize.height
-  };
-  //console.log(JSON.stringify(page.viewportSize))
+    //console.log(JSON.stringify(page.viewportSize))
 
-  var suffix = argv.filename || "." + _phantomApi.system.pid + "-" + new Date().getTime();
+  };var suffix = argv.filename || "." + _phantomApi.system.pid + "-" + new Date().getTime();
   var tmp_html = "./" + suffix + ".html";
   var tmp_js = "./" + suffix + ".js";
   var filename = argv.filename || "./" + suffix + ".png";

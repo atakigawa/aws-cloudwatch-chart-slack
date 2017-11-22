@@ -71,8 +71,69 @@ var CloudWatch = function () {
     /** */
 
   }, {
+    key: "getDiskSpaceUtilDimensionMap",
+    value: function getDiskSpaceUtilDimensionMap() {
+      var _this = this;
+
+      return new Promise(function (resolve, reject) {
+        if (_this._diskSpaceUtilMetricsMap) {
+          resolve(_this._diskSpaceUtilMetricsMap);
+          return;
+        }
+
+        var cloudwatch = new _awsSdk2.default.CloudWatch();
+        var params = {
+          Namespace: 'System/Linux',
+          MetricName: 'DiskSpaceUtilization'
+        };
+        cloudwatch.listMetrics(params, function (err, data) {
+          if (err) {
+            reject(err);return;
+          }
+
+          var map = {};
+          data.Metrics.forEach(function (metric) {
+            var obj = {};
+            metric.Dimensions.forEach(function (dim) {
+              obj[dim.Name] = dim.Value;
+            });
+            obj.origDimensions = metric.Dimensions;
+            // {
+            //   InstanceId: 'xxx',
+            //   MountPath: 'yyy',
+            //   Filesystem: 'zzz',
+            //   origDimensions: [
+            //     {Name: 'InstanceId', Value: 'xxx'},
+            //     {Name: 'MountPath', Value: 'yyy'},
+            //     {Name: 'Filesystem', Value: 'zzz'},
+            //   ]
+            // }
+            map[obj.InstanceId] = obj;
+          });
+
+          _this._diskSpaceUtilMetricsMap = map;
+          resolve(_this._diskSpaceUtilMetricsMap);
+        });
+      });
+    }
+  }, {
+    key: "getDiskSpaceUtilExtraDims",
+    value: function getDiskSpaceUtilExtraDims(instanceID) {
+      return this.getDiskSpaceUtilDimensionMap().then(function (map) {
+        return map[instanceID].origDimensions;
+      });
+    }
+
+    /** */
+
+  }, {
     key: "metricStatistics",
     value: function metricStatistics(namespace, instanceID, metricName) {
+      var _this2 = this;
+
+      var cloudwatch = new _awsSdk2.default.CloudWatch();
+      var prms = Promise.resolve();
+
       var dimName = (0, _metrics.nsToDimName)(namespace);
       var metric = (0, _metrics.searchMetric)(namespace, metricName);
       var sep = _time2.default.toSEP(this._duration, this._endTime);
@@ -83,21 +144,33 @@ var CloudWatch = function () {
         metric.Statistics = [this._statistics];
       }
 
-      var params = _extends({}, sep, metric, {
-        Namespace: namespace,
-        Dimensions: [{
-          Name: dimName,
-          Value: instanceID
-        }]
+      var dims = [{ Name: dimName, Value: instanceID }];
+      if (namespace === 'System/Linux' && metricName === 'DiskSpaceUtilization') {
+        prms = prms.then(function () {
+          return _this2.getDiskSpaceUtilExtraDims(instanceID).then(function (dims_) {
+            dims = dims_;
+          });
+        });
+      }
+
+      var params = {};
+      prms = prms.then(function () {
+        params = _extends({}, sep, metric, {
+          Namespace: namespace,
+          Dimensions: dims
+        });
       });
 
       //process.stderr.write(JSON.stringify(params));
-      var cloudwatch = new _awsSdk2.default.CloudWatch();
-      return new Promise(function (resolve, reject) {
-        return cloudwatch.getMetricStatistics(params, function (err, data) {
-          return err ? reject(err) : resolve([sep, data]);
+
+      prms = prms.then(function () {
+        return new Promise(function (resolve, reject) {
+          return cloudwatch.getMetricStatistics(params, function (err, data) {
+            return err ? reject(err) : resolve([sep, data]);
+          });
         });
       });
+      return prms;
     }
   }]);
 
