@@ -35,7 +35,7 @@ try {
     }
     let b = dynamodb.mimic(stats)
     return [stats[nsToDimName(Namespace)]].concat(sort(stats.Datapoints)
-             .map(e => b ? dynamodb.toY(e) : toY(e, argv.bytes)))
+             .map(e => b ? dynamodb.toY(e) : toY(e, stats, argv.bytes)))
   })
   const textLabelX = to_axis_x_label_text(repre, argv.utc)
 

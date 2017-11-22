@@ -53,6 +53,11 @@ const metricsDynamoDB = [
   { MetricName: "ReadThrottleEvents",               Statistics: [ "Sum" ] },
 ]
 
+const metricsSystemLinux = [
+  { MetricName: "MemoryUtilization",          Statistics: [ "Average" ] },
+  { MetricName: "DiskSpaceUtilization",       Statistics: [ "Average" ] },
+]
+
 "Seconds | Microseconds | Milliseconds | Bytes | Kilobytes | Megabytes | Gigabytes | Terabytes | Bits | Kilobits | Megabits | Gigabits | Terabits | Percent | Count | Bytes/Second | Kilobytes/Second | Megabytes/Second | Gigabytes/Second | Terabytes/Second | Bits/Second | Kilobits/Second | Megabits/Second | Gigabits/Second | Terabits/Second | Count/Second | None"
 "Minimum | Maximum | Sum | Average | SampleCount"
 
@@ -60,6 +65,7 @@ export const METRICS = {
   "AWS/EC2": metricsEC2,
   "AWS/RDS": metricsRDS,
   "AWS/DynamoDB": metricsDynamoDB,
+  "System/Linux": metricsSystemLinux,
 }
 
 type Metric = {
@@ -86,6 +92,7 @@ export function nsToDimName(ns: string): string {
     "AWS/RDS": "DBInstanceIdentifier",
     "AWS/EC2": "InstanceId",
     "AWS/DynamoDB": "TableName",
+    "System/Linux": "InstanceId",
   })[ns]
 }
 
@@ -110,14 +117,20 @@ export function toMin(metrics: Metrics): ?number {
 }
 
 export function toAxisYLabel(metrics: Metrics, bytes: boolean): string {
+  if (metrics.Namespace === 'AWS/RDS' && metrics.Label === 'FreeStorageSpace') {
+    return "Gigabytes"
+  }
   if (metrics.Datapoints[0].Unit === "Bytes" && !bytes) {
     return "Megabytes"
   }
   return metrics.Datapoints[0].Unit
 }
 
-export function toY(metric: Object, bytes: boolean): number {
+export function toY(metric: Object, stat: Object, bytes: boolean): number {
   let e = metric["Maximum"] || metric["Average"] || metric["Minimum"]|| metric["Sum"] || metric["SampleCount"]
+  if (stat.Namespace === 'AWS/RDS' && stat.Label === 'FreeStorageSpace') {
+    return e / (1024 * 1024 * 1024) // Gigabytes
+  }
   if (metric.Unit === "Bytes" && !bytes) {
     return e / (1024 * 1024)  // Megabytes
   }
