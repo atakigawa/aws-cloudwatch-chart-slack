@@ -6,14 +6,13 @@ var FormData = require("form-data");
 
 function upload(channel: string, path: string): Promise {
   return new Promise((resolve, reject) => {
-    var filename = process.env.SLACK_UPLOAD_FILENAME || path
     var form = new FormData();
     form.append("channels", channel);
     form.append("token",    process.env.SLACK_API_TOKEN);
     //form.append("file", fs.createReadStream(path));  //NOTE: This became to fail somehow suddenly... https://github.com/form-data/form-data#notes
     var buf = fs.readFileSync(path);
     form.append("file", buf, {
-      filename: filename,
+      filename: path,
       contentType: "image/png",
       knownLength: buf.length,
     });
